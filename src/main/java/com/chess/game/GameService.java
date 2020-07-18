@@ -5,6 +5,8 @@ import com.chess.player.PlayerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class GameService {
     @Autowired
@@ -15,7 +17,7 @@ public class GameService {
     public Long getNextGame(Player player) {
         final Long[] gameId = {null};
         gameRepository.findAll().forEach(game -> {
-            if(game.getPlayer2() == null) {
+            if(game.getPlayer2() == null && game.isActive()) {
                 player.setColor("black");
                 game.setPlayer2(player);
                 playerRepository.save(player);
@@ -25,6 +27,7 @@ public class GameService {
         });
         if (gameId[0] == null) {
             Game game = new Game();
+            game.setActive(true);
             player.setColor("white");
             game.setPlayer1(player);
             playerRepository.save(player);
@@ -41,10 +44,18 @@ public class GameService {
     public Long getGameIdByPlayerUuid(String playerUuid) {
         final Long[] gameId = {null};
         gameRepository.findAll().forEach( game -> {
-            if(game.getPlayer1().getUuid().equals(playerUuid) || game.getPlayer2().getUuid().equals(playerUuid)) {
+            if(game.getPlayer1() != null && game.getPlayer1().getUuid().equals(playerUuid) || game.getPlayer2() != null && game.getPlayer2().getUuid().equals(playerUuid)) {
                 gameId[0] = game.getId();
             }
         });
         return gameId[0];
+    }
+    public void setGameNotActiveByPlayerId(String playerUuid) {
+        Optional<Game> gameOptional = gameRepository.findById(getGameIdByPlayerUuid(playerUuid));
+        if (gameOptional.isPresent()) {
+            Game game = gameOptional.get();
+            game.setActive(false);
+            gameRepository.save(game);
+        }
     }
 }

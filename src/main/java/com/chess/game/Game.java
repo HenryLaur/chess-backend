@@ -25,5 +25,6 @@ public class Game {
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "player_2", nullable = true)
     private Player player2;
+    private boolean active;
 
 }

@@ -29,7 +29,7 @@ public class SocketHandler extends TextWebSocketHandler {
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message)
             throws InterruptedException, IOException {
-        String uuid = getSessionUuid(session);
+        String uuid = getPlayerUuid(session);
         if(uuid != null) {
             List<WebSocketSession> webSocketSessionsForUuid = sessions.get(gameService.getGameIdByPlayerUuid(uuid));
             System.out.println(message.getPayload());
@@ -49,7 +49,7 @@ public class SocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         Player player = new Player();
-        player.setUuid(getSessionUuid(session));
+        player.setUuid(getPlayerUuid(session));
         Long gameId = gameService.getNextGame(player);
 
         if (gameId != null) {
@@ -69,10 +69,15 @@ public class SocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         System.out.println("CLOSING: " + session);
+        String playerUuid = getPlayerUuid(session);
+        if(playerUuid != null) {
+            gameService.setGameNotActiveByPlayerId(playerUuid);
+        }
+
     }
 
 
-    public String getSessionUuid(WebSocketSession session) {
+    public String getPlayerUuid(WebSocketSession session) {
         if (session.getUri() != null) {
             String[] SplitURL = session.getUri().getPath().split("/");
             return SplitURL[SplitURL.length - 1];
