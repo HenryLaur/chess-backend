@@ -1,5 +1,9 @@
 package com.chess.websocket;
 
+import com.chess.game.GameService;
+import com.chess.player.Player;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -16,15 +20,18 @@ import java.util.Map;
 @Component
 public class SocketHandler extends TextWebSocketHandler {
 
+    @Autowired
+    private GameService gameService;
 
-    Map<String,List<WebSocketSession>> sessions = new HashMap<>();
+    Map<Long,List<WebSocketSession>> sessions = new HashMap<>();
+
 
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message)
             throws InterruptedException, IOException {
         String uuid = getSessionUuid(session);
         if(uuid != null) {
-            List<WebSocketSession> webSocketSessionsForUuid = sessions.get(uuid);
+            List<WebSocketSession> webSocketSessionsForUuid = sessions.get(gameService.getGameIdByPlayerUuid(uuid));
             System.out.println(message.getPayload());
             System.out.println(webSocketSessionsForUuid);
             for (WebSocketSession webSocketSession : webSocketSessionsForUuid) {
@@ -41,14 +48,20 @@ public class SocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String uuid = getSessionUuid(session);
-        if (uuid != null) {
-            List<WebSocketSession> webSocketSessions = sessions.get(uuid);
+        Player player = new Player();
+        player.setUuid(getSessionUuid(session));
+        Long gameId = gameService.getNextGame(player);
+
+        if (gameId != null) {
+            List<WebSocketSession> webSocketSessions = sessions.get(gameId);
             if(webSocketSessions == null) {
                 webSocketSessions = new ArrayList<>();
             }
             webSocketSessions.add(session);
-            sessions.put(uuid, webSocketSessions);
+            sessions.put(gameId, webSocketSessions);
+            if(webSocketSessions.size() == 2) {
+                sendStartGameMessage(webSocketSessions, new TextMessage(new ObjectMapper().writeValueAsString(gameService.getGameById(gameId))));
+            }
         } else {
             System.out.println("COULD NOT FIND SESSION UUID FOR SESSION " + session);
         }
@@ -66,6 +79,19 @@ public class SocketHandler extends TextWebSocketHandler {
 
         } else {
             return null;
+        }
+    }
+
+    private void sendStartGameMessage(List<WebSocketSession> webSocketSessions, TextMessage message) {
+        System.out.println(message.getPayload());
+        for (WebSocketSession webSocketSession : webSocketSessions) {
+            if (webSocketSession.isOpen()) {
+                try {
+                    webSocketSession.sendMessage(message);
+                } catch (IOException e) {
+                    System.out.println("ERROR: " + e);
+                }
+            }
         }
     }
 
